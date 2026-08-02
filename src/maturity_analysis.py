@@ -8,7 +8,7 @@ from src.settings import questions_map
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_FILE = BASE_DIR / "files" / "answers" / "answers.csv"
-SUMMARY_FILE = BASE_DIR / "files" / "charts" / "maturity_levels_summary.csv"
+MATURITY_ANALYSIS_DIR = BASE_DIR / "files" / "maturity_analysis"
 HIGH_LIKERT_VALUES = {4, 5}
 MATURITY_LEVELS_MAP = {
     1: {
@@ -115,7 +115,51 @@ def run_maturity_analysis_by_score() -> pd.DataFrame:
     # Export
     summary_df = pd.DataFrame(summary_data)
     print("Maturity Analysis: \n", summary_df)
-    SUMMARY_FILE.parent.mkdir(parents=True, exist_ok=True)
-    summary_df.to_csv(SUMMARY_FILE, index=False)
+    summary_file_path = MATURITY_ANALYSIS_DIR / "maturity_levels_summary.csv"
+    summary_file_path.parent.mkdir(parents=True, exist_ok=True)
+    summary_df.to_csv(summary_file_path, index=False)
     
-    return summary_df
+    return df, summary_df
+
+import pandas as pd
+from pathlib import Path
+
+def generate_profile_cross_analysis(df: pd.DataFrame) -> None:
+    # 1. Mapeamento das colunas de perfil baseado no seu questions_map
+    col_role = NUMBER_TO_QUESTION_MAP[2]     # Qual seu papel atualmente?
+    col_exp = NUMBER_TO_QUESTION_MAP[4]      # Qual seu nível de Experiência?
+    col_sector = NUMBER_TO_QUESTION_MAP[5]   # Em qual setor principal atua...
+    
+    # Lista dos cruzamentos para rodar em loop
+    cross_analyses = [
+        {'name': 'por_setor', 'column': col_sector, 'title': 'Maturidade vs Setor'},
+        {'name': 'por_papel', 'column': col_role, 'title': 'Maturidade vs Papel'},
+        {'name': 'por_experiencia', 'column': col_exp, 'title': 'Maturidade vs Experiência'}
+    ]
+    
+    BASE_DIR = Path(__file__).resolve().parent.parent
+    CHARTS_DIR = BASE_DIR / "files" / "charts"
+    CHARTS_DIR.mkdir(parents=True, exist_ok=True)
+    
+    for analysis in cross_analyses:
+        col = analysis['column']
+        
+        # Cria a tabela cruzada normalizando pelas linhas (index)
+        # Multiplica por 100 e arredonda para ter porcentagens bonitas (ex: 45.5%)
+        crosstab_df = pd.crosstab(
+            index=df[col], 
+            columns=df['nivel_predominante'], 
+            normalize='index'
+        ) * 100
+        
+        crosstab_df = crosstab_df.round(2)
+        
+        # Renomeia as colunas para o TCC (de 0, 1, 2 para Nível 0, Nível 1...)
+        crosstab_df.columns = [f'Nível {c}' for c in crosstab_df.columns]
+        
+        # Exporta cada análise para um arquivo CSV separado
+        file_path = MATURITY_ANALYSIS_DIR / f"crosstab_maturidade_{analysis['name']}.csv"
+        
+        # O reset_index coloca a coluna do perfil (ex: Setor) como a primeira coluna do CSV
+        crosstab_df.reset_index().to_csv(file_path, index=False)
+        print(f"Exportado: {file_path.name}")

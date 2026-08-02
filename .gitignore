@@ -1,0 +1,11 @@
+# Venv directory
+/venv
+
+# Answer files
+/files/answers
+
+# Chart files
+/files/charts
+
+# Pycache
+__pycache__/

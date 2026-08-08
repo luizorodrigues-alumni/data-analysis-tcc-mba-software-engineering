@@ -2,8 +2,9 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.chart_generator import read_file_to_df
-from src.settings import questions_map
+from src import constants
+from src.chart_generator import generate_heatmap_chart, read_file_to_df
+from src.data_treatment.data_preprocessing import data_preprocessing
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -37,19 +38,18 @@ MATURITY_LEVELS_MAP = {
         'questions': [11, 12, 13],
     },
 }
-NUMBER_TO_QUESTION_MAP = {
-    details['question_number']: question
-    for question, details in questions_map.items()
-}
 
 
 def run_maturity_analysis_by_score() -> pd.DataFrame:
-    df = read_file_to_df(DATA_FILE)
-    
+    raw_df = read_file_to_df(DATA_FILE)
+
+    # Preprocess DataFrame
+    df = data_preprocessing(df=raw_df)
+
     # 1. Calcula o Score (Média) de cada Nível para cada respondente
     for level, meta in MATURITY_LEVELS_MAP.items():
         required_q_numbers = meta['questions']
-        col_names = [NUMBER_TO_QUESTION_MAP[q_num] for q_num in required_q_numbers]
+        col_names = [constants.NUMBER_TO_QUESTIONS_MAP[q_num] for q_num in required_q_numbers]
         
         # Converte as colunas para numérico (caso o pandas tenha lido como string)
         for col in col_names:
@@ -121,14 +121,12 @@ def run_maturity_analysis_by_score() -> pd.DataFrame:
     
     return df, summary_df
 
-import pandas as pd
-from pathlib import Path
 
 def generate_profile_cross_analysis(df: pd.DataFrame) -> None:
-    # 1. Mapeamento das colunas de perfil baseado no seu questions_map
-    col_role = NUMBER_TO_QUESTION_MAP[2]     # Qual seu papel atualmente?
-    col_exp = NUMBER_TO_QUESTION_MAP[4]      # Qual seu nível de Experiência?
-    col_sector = NUMBER_TO_QUESTION_MAP[5]   # Em qual setor principal atua...
+    # 1. Mapeamento das colunas de perfil baseado no seu questions map
+    col_role = constants.NUMBER_TO_QUESTIONS_MAP[2]     # Qual seu papel atualmente?
+    col_exp = constants.NUMBER_TO_QUESTIONS_MAP[4]      # Qual seu nível de Experiência?
+    col_sector = constants.NUMBER_TO_QUESTIONS_MAP[5]   # Em qual setor principal atua...
     
     # Lista dos cruzamentos para rodar em loop
     cross_analyses = [
@@ -163,3 +161,6 @@ def generate_profile_cross_analysis(df: pd.DataFrame) -> None:
         # O reset_index coloca a coluna do perfil (ex: Setor) como a primeira coluna do CSV
         crosstab_df.reset_index().to_csv(file_path, index=False)
         print(f"Exportado: {file_path.name}")
+
+        # Generate a heatmap chart for the crosstab
+        generate_heatmap_chart(crosstab_df, output_path=MATURITY_ANALYSIS_DIR / f"heatmap_maturidade_{analysis['name']}.png")

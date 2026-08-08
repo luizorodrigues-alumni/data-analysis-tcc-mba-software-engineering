@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -48,5 +49,21 @@ def generate_likert_scale_chart(
     output_path = output_dir / f"likert_chart_{question_number}.png"
     plt.savefig(output_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
+
+    return output_path
+
+
+def generate_heatmap_chart(
+    df: pd.DataFrame,
+    output_path: Path = DEFAULT_OUTPUT_DIR
+):
+
+    plt.figure(figsize=(12, 8))
+    sns.heatmap(df, annot=True, fmt=".2f", cmap="YlGnBu", cbar=True)
+    plt.title("Heatmap")
+    plt.tight_layout()
+
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close()
 
     return output_path

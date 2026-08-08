@@ -19,8 +19,8 @@ def generate_likert_scale_chart(
     question_number: int,
     output_dir: Path = DEFAULT_OUTPUT_DIR,
 ) -> Path:
-    # Garantir que todas as opções da escala Likert (1 a 5) apareçam no gráfico,
-    # mesmo quando não houver nenhuma resposta para alguma opção.
+    
+    # Ensure that all Likert scale options (1 to 5) appear in the chart, even when there are no responses for some options.
     response_counts = (
         df[column_name]
         .value_counts()
@@ -55,15 +55,52 @@ def generate_likert_scale_chart(
 
 def generate_heatmap_chart(
     df: pd.DataFrame,
-    output_path: Path = DEFAULT_OUTPUT_DIR
-):
+    output_path: Path,
+    percentage: bool = True,
+    xlabel: str = "",
+    ylabel: str = "",
+) -> Path:
+    """
+    Generates a heatmap chart from the given DataFrame and saves it to the specified output path.
 
-    plt.figure(figsize=(12, 8))
-    sns.heatmap(df, annot=True, fmt=".2f", cmap="YlGnBu", cbar=True)
-    plt.title("Heatmap")
-    plt.tight_layout()
+    Args:
+        df (pd.DataFrame): The DataFrame containing the data for the heatmap.
+        output_path (Path): The path where the heatmap image will be saved.
+        percentage (bool): If True, the heatmap will be scaled to show percentages (0 to 100). Default is True.
+        xlabel (str): Label for the x-axis. Default is an empty string.
+        ylabel (str): Label for the y-axis. Default is an empty string.
+    Returns:
+        output_path (Path): The path where the heatmap image was saved.    
+    """
 
-    plt.savefig(output_path, dpi=300, bbox_inches="tight")
-    plt.close()
+    fig, ax = plt.subplots(figsize=(12, 8))
+    heatmap_kwargs = {
+        "annot": True,
+        "fmt": ".2f",
+        "cmap": "YlGnBu",
+        "cbar": True,
+        "linewidths": 0.5,
+        "linecolor": "lightgray",
+        "square": True,
+    }
+
+    # Percentage scale heatmap should have a color bar ranging from 0 to 100
+    if percentage:
+        heatmap_kwargs["vmin"] = 0
+        heatmap_kwargs["vmax"] = 100
+        heatmap_kwargs["cbar_kws"] = {"label": "Percentual (%)"}
+
+    # Generate the heatmap and configure its appearance
+    sns.heatmap(df, ax=ax, **heatmap_kwargs)
+    ax.set_title("Heatmap")
+    ax.set_xlabel(xlabel, labelpad=15)
+    ax.set_ylabel(ylabel, labelpad=15)
+    ax.tick_params(axis="x", pad=8)
+    ax.tick_params(axis="y", pad=8)
+    fig.tight_layout()
+
+    # Save the heatmap figure
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
 
     return output_path

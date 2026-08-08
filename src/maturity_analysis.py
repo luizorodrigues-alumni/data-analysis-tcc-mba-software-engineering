@@ -163,4 +163,8 @@ def generate_profile_cross_analysis(df: pd.DataFrame) -> None:
         print(f"Exportado: {file_path.name}")
 
         # Generate a heatmap chart for the crosstab
-        generate_heatmap_chart(crosstab_df, output_path=MATURITY_ANALYSIS_DIR / f"heatmap_maturidade_{analysis['name']}.png")
+        generate_heatmap_chart(
+            df=crosstab_df, 
+            output_path=MATURITY_ANALYSIS_DIR / f"heatmap_maturidade_{analysis['name']}.png",
+            xlabel="Nível de Maturidade",
+        )

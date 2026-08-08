@@ -1,5 +1,5 @@
 
-questions_map= {
+QUESTIONS_MAP= {
     'Em qual Região você atua hoje?': {
         'question_number': 1,
         'question_type': 'multiple_choice',
@@ -96,4 +96,9 @@ questions_map= {
         'question_section': 'Business Risk',
     },
 
+}
+
+NUMBER_TO_QUESTIONS_MAP = {
+    details['question_number']: question
+    for question, details in QUESTIONS_MAP.items()
 }

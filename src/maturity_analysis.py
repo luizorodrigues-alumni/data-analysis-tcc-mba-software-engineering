@@ -112,12 +112,16 @@ def run_maturity_analysis_by_score() -> pd.DataFrame:
         'Percentual (%)': round(percentage_0, 2)
     })
 
-    # Export
+    # Export summary df to CSV
     summary_df = pd.DataFrame(summary_data)
-    print("Maturity Analysis: \n", summary_df)
     summary_file_path = MATURITY_ANALYSIS_DIR / "maturity_levels_summary.csv"
     summary_file_path.parent.mkdir(parents=True, exist_ok=True)
     summary_df.to_csv(summary_file_path, index=False)
+    print("Maturity Analysis: \n", summary_df)
+
+    # Export the df to CSV
+    df_file_path = MATURITY_ANALYSIS_DIR / "maturity_analysis_by_score.csv"
+    df.to_csv(df_file_path, index=False)
     
     return df, summary_df
 

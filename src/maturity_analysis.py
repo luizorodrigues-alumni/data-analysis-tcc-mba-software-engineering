@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -10,7 +11,9 @@ from src.data_treatment.data_preprocessing import data_preprocessing
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_FILE = BASE_DIR / "files" / "answers" / "answers.csv"
 MATURITY_ANALYSIS_DIR = BASE_DIR / "files" / "maturity_analysis"
-HIGH_LIKERT_VALUES = {4, 5}
+CHARTS_DIR = BASE_DIR / "files" / "charts"
+PREDOMINANT_LEVEL_COLUMN = "nivel_predominante"
+PREDOMINANT_LEVEL_MEDIAN_COLUMN = "nivel_predominante_mediana"
 MATURITY_LEVELS_MAP = {
     1: {
         'label': 'Nível 1 - Orientado por intuição',
@@ -40,135 +43,142 @@ MATURITY_LEVELS_MAP = {
 }
 
 
-def run_maturity_analysis_by_score() -> pd.DataFrame:
-    raw_df = read_file_to_df(DATA_FILE)
+def _get_question_columns(question_numbers: list[int]) -> list[str]:
+    return [constants.NUMBER_TO_QUESTIONS_MAP[q_num] for q_num in question_numbers]
 
-    # Preprocess DataFrame
-    df = data_preprocessing(df=raw_df)
 
-    # 1. Calcula o Score (Média) de cada Nível para cada respondente
+def _calculate_scores_by_level(df: pd.DataFrame) -> None:
     for level, meta in MATURITY_LEVELS_MAP.items():
-        required_q_numbers = meta['questions']
-        col_names = [constants.NUMBER_TO_QUESTIONS_MAP[q_num] for q_num in required_q_numbers]
-        
-        # Converte as colunas para numérico (caso o pandas tenha lido como string)
+        col_names = _get_question_columns(meta["questions"])
+
+        # Converte para numérico para garantir cálculo consistente de média/mediana.
         for col in col_names:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-            
-        col_score_name = f'score_nivel_{level}'
-        # Tira a média das respostas daquele nível para cada linha
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+        col_score_name = f"score_nivel_{level}"
         df[col_score_name] = df[col_names].mean(axis=1)
+        df[f"{col_score_name}_median"] = df[col_names].median(axis=1)
 
-    # 2. Define o Nível Predominante de cada pessoa
-    def determine_predominant_level(row):
-        # Cria um dicionário com os scores da pessoa: {1: 4.3, 2: 2.0, 3: 3.5...}
-        scores = {level: row[f'score_nivel_{level}'] for level in MATURITY_LEVELS_MAP.keys()}
-        
-        # Descobre qual nível teve a maior nota
-        max_level = max(scores, key=scores.get)
-        max_score = scores[max_level]
-        
-        # Critério de corte: A média precisa ser pelo menos 3.5 para ser considerado "Maduro" naquele nível.
-        # Se a maior nota da pessoa for 3.3, ela é "inconsistente" (Nível 0)
-        if max_score >= 3.5:
-            return max_level
-        else:
-            return 0  # Nível 0 - Ad-hoc / Inconsistente
-            
-    df['nivel_predominante'] = df.apply(determine_predominant_level, axis=1)
 
-    # 3. Sumariza para ver quantas pessoas caíram em cada "caixote"
-    level_counts = df['nivel_predominante'].value_counts().reset_index()
-    level_counts.columns = ['Nível', 'Quantidade de Pessoas']
-    
-    # 4. Formata para o CSV final
+def _determine_predominant_level(row: pd.Series, score_suffix: str = "") -> int:
+    scores = [
+        (level, row[f"score_nivel_{level}{score_suffix}"])
+        for level in MATURITY_LEVELS_MAP
+    ]
+    valid_scores = [(level, score) for level, score in scores if pd.notna(score)]
+
+    if not valid_scores:
+        return 0
+
+    # Em empate, escolhe o nível mais alto.
+    max_level, max_score = max(valid_scores, key=lambda item: (item[1], item[0]))
+    return max_level if max_score >= 3.5 else 0
+
+
+def _add_predominant_levels(df: pd.DataFrame) -> None:
+    df[PREDOMINANT_LEVEL_COLUMN] = df.apply(_determine_predominant_level, axis=1)
+    df[PREDOMINANT_LEVEL_MEDIAN_COLUMN] = df.apply(
+        lambda row: _determine_predominant_level(row, "_median"),
+        axis=1,
+    )
+
+
+def _build_summary_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    level_counts = df[PREDOMINANT_LEVEL_COLUMN].value_counts().to_dict()
     total_respondents = len(df)
-    if total_respondents == 0:
-        raise ValueError("Nenhum respondente encontrado. O arquivo CSV pode estar vazio ou mal formatado.")
-    summary_data = []
-    
-    # Adiciona os níveis de 1 a 5
-    for level, meta in MATURITY_LEVELS_MAP.items():
-        count_series = level_counts[level_counts['Nível'] == level]['Quantidade de Pessoas']
-        count = count_series.values[0] if not count_series.empty else 0
-        percentage = (count / total_respondents) * 100 
-        
-        summary_data.append({
-            'Nível': level,
-            'Rótulo': meta['label'],
-            'Quantidade de Pessoas': count,
-            'Percentual (%)': round(percentage, 2)
-        })
-        
-    # Adiciona a linha do Nível 0 (Não Classificados / Ad-hoc)
-    count_0_series = level_counts[level_counts['Nível'] == 0]['Quantidade de Pessoas']
-    count_0 = count_0_series.values[0] if not count_0_series.empty else 0
-    percentage_0 = (count_0 / total_respondents) * 100 if total_respondents > 0 else 0
-    
-    summary_data.append({
-        'Nível': 0,
-        'Rótulo': 'Nível 0 - Inconsistente (Sem maturidade clara)',
-        'Quantidade de Pessoas': count_0,
-        'Percentual (%)': round(percentage_0, 2)
-    })
 
-    # Export summary df to CSV
-    summary_df = pd.DataFrame(summary_data)
+    if total_respondents == 0:
+        raise ValueError(
+            "Nenhum respondente encontrado. O arquivo CSV pode estar vazio ou mal formatado."
+        )
+
+    summary_data: list[dict[str, Any]] = []
+
+    for level, meta in MATURITY_LEVELS_MAP.items():
+        count = int(level_counts.get(level, 0))
+        percentage = (count / total_respondents) * 100
+        summary_data.append(
+            {
+                "Nível": level,
+                "Rótulo": meta["label"],
+                "Quantidade de Pessoas": count,
+                "Percentual (%)": round(percentage, 2),
+            }
+        )
+
+    count_0 = int(level_counts.get(0, 0))
+    percentage_0 = (count_0 / total_respondents) * 100
+    summary_data.append(
+        {
+            "Nível": 0,
+            "Rótulo": "Nível 0 - Inconsistente (Sem maturidade clara)",
+            "Quantidade de Pessoas": count_0,
+            "Percentual (%)": round(percentage_0, 2),
+        }
+    )
+
+    return pd.DataFrame(summary_data)
+
+
+def _export_maturity_outputs(df: pd.DataFrame, summary_df: pd.DataFrame) -> None:
     summary_file_path = MATURITY_ANALYSIS_DIR / "maturity_levels_summary.csv"
     summary_file_path.parent.mkdir(parents=True, exist_ok=True)
     summary_df.to_csv(summary_file_path, index=False)
     print("Maturity Analysis: \n", summary_df)
 
-    # Export the df to CSV
     df_file_path = MATURITY_ANALYSIS_DIR / "maturity_analysis_by_score.csv"
     df.to_csv(df_file_path, index=False)
-    
+
+
+def run_maturity_analysis_by_score() -> tuple[pd.DataFrame, pd.DataFrame]:
+    raw_df = read_file_to_df(DATA_FILE)
+    df = data_preprocessing(df=raw_df)
+
+    _calculate_scores_by_level(df)
+    _add_predominant_levels(df)
+
+    summary_df = _build_summary_dataframe(df)
+    _export_maturity_outputs(df, summary_df)
+
     return df, summary_df
 
 
 def generate_profile_cross_analysis(df: pd.DataFrame) -> None:
-    # 1. Mapeamento das colunas de perfil baseado no seu questions map
-    col_role = constants.NUMBER_TO_QUESTIONS_MAP[2]     # Qual seu papel atualmente?
-    col_exp = constants.NUMBER_TO_QUESTIONS_MAP[4]      # Qual seu nível de Experiência?
-    col_sector = constants.NUMBER_TO_QUESTIONS_MAP[5]   # Em qual setor principal atua...
-    
-    # Lista dos cruzamentos para rodar em loop
+    col_role = constants.NUMBER_TO_QUESTIONS_MAP[2]
+    col_exp = constants.NUMBER_TO_QUESTIONS_MAP[4]
+    col_sector = constants.NUMBER_TO_QUESTIONS_MAP[5]
+
     cross_analyses = [
-        {'name': 'por_setor', 'column': col_sector, 'title': 'Maturidade vs Setor'},
-        {'name': 'por_papel', 'column': col_role, 'title': 'Maturidade vs Papel'},
-        {'name': 'por_experiencia', 'column': col_exp, 'title': 'Maturidade vs Experiência'}
+        {"name": "por_setor", "column": col_sector, "title": "Maturidade vs Setor"},
+        {"name": "por_papel", "column": col_role, "title": "Maturidade vs Papel"},
+        {
+            "name": "por_experiencia",
+            "column": col_exp,
+            "title": "Maturidade vs Experiência",
+        },
     ]
-    
-    BASE_DIR = Path(__file__).resolve().parent.parent
-    CHARTS_DIR = BASE_DIR / "files" / "charts"
+
     CHARTS_DIR.mkdir(parents=True, exist_ok=True)
-    
+
     for analysis in cross_analyses:
-        col = analysis['column']
-        
-        # Cria a tabela cruzada normalizando pelas linhas (index)
-        # Multiplica por 100 e arredonda para ter porcentagens bonitas (ex: 45.5%)
+        col = analysis["column"]
+
         crosstab_df = pd.crosstab(
-            index=df[col], 
-            columns=df['nivel_predominante'], 
-            normalize='index'
+            index=df[col],
+            columns=df[PREDOMINANT_LEVEL_MEDIAN_COLUMN],
+            normalize="index",
         ) * 100
-        
+
         crosstab_df = crosstab_df.round(2)
-        
-        # Renomeia as colunas para o TCC (de 0, 1, 2 para Nível 0, Nível 1...)
-        crosstab_df.columns = [f'Nível {c}' for c in crosstab_df.columns]
-        
-        # Exporta cada análise para um arquivo CSV separado
+
+        crosstab_df.columns = [f"Nível {c}" for c in crosstab_df.columns]
         file_path = MATURITY_ANALYSIS_DIR / f"crosstab_maturidade_{analysis['name']}.csv"
-        
-        # O reset_index coloca a coluna do perfil (ex: Setor) como a primeira coluna do CSV
+
         crosstab_df.reset_index().to_csv(file_path, index=False)
         print(f"Exportado: {file_path.name}")
 
-        # Generate a heatmap chart for the crosstab
         generate_heatmap_chart(
-            df=crosstab_df, 
+            df=crosstab_df,
             output_path=MATURITY_ANALYSIS_DIR / f"heatmap_maturidade_{analysis['name']}.png",
             xlabel="Nível de Maturidade",
         )

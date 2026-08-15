@@ -10,5 +10,8 @@
 # Maturity analysis files
 /files/maturity_analysis
 
+# Qualitative reports
+/files/qualitative_reports
+
 # Pycache
 __pycache__/

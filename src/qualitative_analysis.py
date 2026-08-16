@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from src.constants import NUMBER_TO_QUESTIONS_MAP
+from constants import NUMBER_TO_QUESTIONS_MAP
 import pandas as pd
 
 def generate_qualitative_reports(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:

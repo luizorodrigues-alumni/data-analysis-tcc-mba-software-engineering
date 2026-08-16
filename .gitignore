@@ -5,7 +5,13 @@
 /files/answers
 
 # Chart files
-/files/charts
+/files/likert_charts
+
+# Maturity analysis files
+/files/maturity_analysis
+
+# Qualitative reports
+/files/qualitative_reports
 
 # Pycache
 __pycache__/

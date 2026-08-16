@@ -37,7 +37,7 @@ def _calculate_scores_by_level(df: pd.DataFrame) -> None:
     for level, meta in MATURITY_LEVELS_MAP.items():
         col_names = _get_question_columns(meta["questions"])
 
-        # Converte para numérico para garantir cálculo consistente de média/mediana.
+        # Converts to numeric to ensure consistent mean/median calculation.
         for col in col_names:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
@@ -65,7 +65,7 @@ def _determine_predominant_level(row: pd.Series, score_suffix: str = "") -> int:
     if not valid_scores:
         return 0
 
-    # Em empate, escolhe o nível mais alto.
+    # In case of a tie, chooses the highest level.
     max_level, max_score = max(valid_scores, key=lambda item: (item[1], item[0]))
     return max_level if max_score >= 3.5 else 0
 

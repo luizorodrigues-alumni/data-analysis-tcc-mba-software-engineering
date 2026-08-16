@@ -4,7 +4,7 @@ import unicodedata
 
 import pandas as pd
 
-from src import constants
+from constants import NUMBER_TO_QUESTIONS_MAP
 
 
 ROLE_COLUMN_NUMBER = 2
@@ -35,7 +35,7 @@ def data_preprocess_role_column(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         pd.DataFrame: The DataFrame with the preprocessed role column.
     """
-    number_to_question_map = constants.NUMBER_TO_QUESTIONS_MAP
+    number_to_question_map = NUMBER_TO_QUESTIONS_MAP
     role_column = number_to_question_map[ROLE_COLUMN_NUMBER]
     role_detail_column = number_to_question_map[ROLE_DETAIL_COLUMN_NUMBER]
 

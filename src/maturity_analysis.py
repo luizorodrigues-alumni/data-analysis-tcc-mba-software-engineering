@@ -3,9 +3,9 @@ from typing import Any
 
 import pandas as pd
 
-from src.constants import NUMBER_TO_QUESTIONS_MAP, MATURITY_LEVELS_MAP
-from src.chart_generator import generate_heatmap_chart, read_file_to_df
-from src.data_treatment.data_preprocessing import data_preprocessing
+from constants import NUMBER_TO_QUESTIONS_MAP, MATURITY_LEVELS_MAP
+from chart_generator import generate_heatmap_chart, read_file_to_df
+from data_treatment.data_preprocessing import data_preprocessing
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent

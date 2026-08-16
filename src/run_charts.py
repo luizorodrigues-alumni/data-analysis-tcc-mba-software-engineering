@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from src.chart_generator import generate_likert_scale_chart, read_file_to_df
-from src import constants
+from chart_generator import generate_likert_scale_chart, read_file_to_df
+from constants import QUESTIONS_MAP
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -23,7 +23,7 @@ def run_all_likert_scale_charts() -> None:
     print(df.head(5))
     print(df.describe())
 
-    for question, details in constants.QUESTIONS_MAP.items():
+    for question, details in QUESTIONS_MAP.items():
         if details["question_type"] == "likert_scale":
             column_name = question
             question_number = details["question_number"]

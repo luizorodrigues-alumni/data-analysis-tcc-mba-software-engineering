@@ -6,11 +6,18 @@ import pandas as pd
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DEFAULT_OUTPUT_DIR = BASE_DIR / "files" / "charts"
+DEFAULT_OUTPUT_DIR = BASE_DIR / "files" / "likert_charts"
 
 
 def read_file_to_df(path: str) -> pd.DataFrame:
-	return pd.read_csv(path)
+    """
+    Reads a CSV file from the specified path and returns it as a pandas DataFrame.
+
+    Args:
+        path (str): The file path to the CSV file.
+    """
+
+    return pd.read_csv(path)
 
 
 def generate_likert_scale_chart(
@@ -19,6 +26,18 @@ def generate_likert_scale_chart(
     question_number: int,
     output_dir: Path = DEFAULT_OUTPUT_DIR,
 ) -> Path:
+
+    """
+    Generates a Likert scale chart for the specified question column in the DataFrame and saves it to the output directory.
+
+    Args:
+        df (pd.DataFrame): The DataFrame containing the survey responses.
+        column_name (str): The name of the column corresponding to the question for which the chart is to be generated.
+        question_number (int): The number of the question for labeling purposes.
+        output_dir (Path): The directory where the generated chart will be saved. Default is DEFAULT_OUTPUT_DIR.
+    Returns:
+        output_path (Path): The path where the generated chart image was saved.
+    """
     
     # Ensure that all Likert scale options (1 to 5) appear in the chart, even when there are no responses for some options.
     response_counts = (

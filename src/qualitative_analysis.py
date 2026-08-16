@@ -1,9 +1,22 @@
 from pathlib import Path
 
-from src.constants import NUMBER_TO_QUESTIONS_MAP, QUALITATIVE_THEMES_MAP
+from src.constants import NUMBER_TO_QUESTIONS_MAP
 import pandas as pd
 
-def generate_manual_qualitative_reports(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+def generate_qualitative_reports(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Generates qualitative reports based on the survey responses for questions 18 and 19.
+    The function calculates the frequency of specific categories mentioned in the responses and generates two separate reports:
+    1. Report for Question 18 (Impacto Negativo)
+    2. Report for Question 19 (Exemplo de Projeto)
+
+    Args:
+        df (pd.DataFrame): The DataFrame containing the survey responses.
+    Returns:
+        tuple[pd.DataFrame, pd.DataFrame]: A tuple containing two DataFrames:
+            - The first DataFrame corresponds to the report for Question 18.
+            - The second DataFrame corresponds to the report for Question 19.
+    """
     # 1. Definir as colunas de texto originais para saber quem respondeu
     q18_col = NUMBER_TO_QUESTIONS_MAP[18]
     q19_col = NUMBER_TO_QUESTIONS_MAP[19]
@@ -74,8 +87,14 @@ def generate_manual_qualitative_reports(df: pd.DataFrame) -> tuple[pd.DataFrame,
     BASE_DIR = Path(__file__).resolve().parent.parent
     RESULT_DIR = BASE_DIR / "files" / "qualitative_reports"
     RESULT_DIR.mkdir(parents=True, exist_ok=True)
-    
-    report_q1.to_csv(RESULT_DIR / "frequencia_qualitativa_p18.csv", index=False)
-    report_q2.to_csv(RESULT_DIR / "frequencia_qualitativa_p19.csv", index=False)
+
+    file_name_q18 = "frequencia_qualitativa_p18.csv"
+    file_name_q19 = "frequencia_qualitativa_p19.csv"
+
+    report_q1.to_csv(RESULT_DIR / file_name_q18, index=False)
+    print(f"Exportado: {file_name_q18}")
+
+    report_q2.to_csv(RESULT_DIR / file_name_q19, index=False)
+    print(f"Exportado: {file_name_q19}")
     
     return report_q1, report_q2

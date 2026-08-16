@@ -3,7 +3,7 @@ from typing import Any
 
 import pandas as pd
 
-from src import constants
+from src.constants import NUMBER_TO_QUESTIONS_MAP, MATURITY_LEVELS_MAP
 from src.chart_generator import generate_heatmap_chart, read_file_to_df
 from src.data_treatment.data_preprocessing import data_preprocessing
 
@@ -11,43 +11,29 @@ from src.data_treatment.data_preprocessing import data_preprocessing
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_FILE = BASE_DIR / "files" / "answers" / "answers.csv"
 MATURITY_ANALYSIS_DIR = BASE_DIR / "files" / "maturity_analysis"
-CHARTS_DIR = BASE_DIR / "files" / "charts"
 PREDOMINANT_LEVEL_COLUMN = "nivel_predominante"
 PREDOMINANT_LEVEL_MEDIAN_COLUMN = "nivel_predominante_mediana"
-MATURITY_LEVELS_MAP = {
-    1: {
-        'label': 'Nível 1 - Orientado por intuição',
-        'description': 'Execução top-down e sem processos de discovery',
-        'questions': [7, 8, 9],
-    },
-    2: {
-        'label': 'Nível 2 - Orientado por projetos',
-        'description': 'Fábrica de features e ausência de roadmap compartilhado',
-        'questions': [8, 14, 17],
-    },
-    3: {
-        'label': 'Nível 3 - Orientado por clientes',
-        'description': 'Reatividade e visão de curto prazo',
-        'questions': [9, 15, 16],
-    },
-    4: {
-        'label': 'Nível 4 - Orientado por oportunidades',
-        'description': 'Priorização por oportunidade e validação de negócio',
-        'questions': [11, 12, 10],
-    },
-    5: {
-        'label': 'Nível 5 - Orientado por estratégia',
-        'description': 'Colaboração irrestrita e acesso a dados sem fricção',
-        'questions': [11, 12, 13],
-    },
-}
 
 
 def _get_question_columns(question_numbers: list[int]) -> list[str]:
-    return [constants.NUMBER_TO_QUESTIONS_MAP[q_num] for q_num in question_numbers]
+    """
+    Retrieves the column names corresponding to the given question numbers from the NUMBER_TO_QUESTIONS_MAP.
+    Args:
+        question_numbers (list[int]): A list of question numbers for which to retrieve the column names.
+    Returns:
+        list[str]: A list of column names corresponding to the provided question numbers.
+    """
+    return [NUMBER_TO_QUESTIONS_MAP[q_num] for q_num in question_numbers]
 
 
 def _calculate_scores_by_level(df: pd.DataFrame) -> None:
+    """
+    Calculates the mean and median scores for each maturity level based on the specified questions.
+    Args:
+        df (pd.DataFrame): The DataFrame containing the survey responses.
+    Returns:
+        None: The function modifies the DataFrame in place by adding new columns for each maturity level's mean and median scores.    
+    """
     for level, meta in MATURITY_LEVELS_MAP.items():
         col_names = _get_question_columns(meta["questions"])
 
@@ -61,6 +47,15 @@ def _calculate_scores_by_level(df: pd.DataFrame) -> None:
 
 
 def _determine_predominant_level(row: pd.Series, score_suffix: str = "") -> int:
+    """
+    Determines the predominant maturity level for a given respondent based on their scores for each level.
+    Args:
+        row (pd.Series): A row from the DataFrame representing a respondent's scores.
+        score_suffix (str): An optional suffix to specify which score to use (e.g., "_median" for median scores). Default is an empty string for mean scores.
+    Returns:
+        int: The predominant maturity level (0 if no level meets the threshold).    
+    """
+
     scores = [
         (level, row[f"score_nivel_{level}{score_suffix}"])
         for level in MATURITY_LEVELS_MAP
@@ -76,6 +71,13 @@ def _determine_predominant_level(row: pd.Series, score_suffix: str = "") -> int:
 
 
 def _add_predominant_levels(df: pd.DataFrame) -> None:
+    """
+    Adds the predominant maturity level and the median-based predominant level to the DataFrame.
+    Args:
+        df (pd.DataFrame): The DataFrame containing the survey responses with maturity scores.
+    Returns:
+        None: The function modifies the DataFrame in place by adding two new columns for the predominant maturity level and the median-based predominant level.
+    """
     df[PREDOMINANT_LEVEL_COLUMN] = df.apply(_determine_predominant_level, axis=1)
     df[PREDOMINANT_LEVEL_MEDIAN_COLUMN] = df.apply(
         lambda row: _determine_predominant_level(row, "_median"),
@@ -84,6 +86,13 @@ def _add_predominant_levels(df: pd.DataFrame) -> None:
 
 
 def _build_summary_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Builds a summary DataFrame containing the count and percentage of respondents for each maturity level.
+    Args:
+        df (pd.DataFrame): The DataFrame containing the survey responses with maturity levels.
+    Returns:
+        pd.DataFrame: A summary DataFrame with columns for maturity level, label, count, and percentage of respondents.
+    """
     level_counts = df[PREDOMINANT_LEVEL_COLUMN].value_counts().to_dict()
     total_respondents = len(df)
 
@@ -121,6 +130,15 @@ def _build_summary_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _export_maturity_outputs(df: pd.DataFrame, summary_df: pd.DataFrame) -> None:
+    """
+    Exports the maturity analysis results to CSV files in the MATURITY_ANALYSIS_DIR.
+    Args:
+        df (pd.DataFrame): The DataFrame containing the survey responses with maturity levels.
+        summary_df (pd.DataFrame): The summary DataFrame with counts and percentages for each maturity level.
+    Returns:
+        None
+    """
+
     summary_file_path = MATURITY_ANALYSIS_DIR / "maturity_levels_summary.csv"
     summary_file_path.parent.mkdir(parents=True, exist_ok=True)
     summary_df.to_csv(summary_file_path, index=False)
@@ -131,6 +149,13 @@ def _export_maturity_outputs(df: pd.DataFrame, summary_df: pd.DataFrame) -> None
 
 
 def run_maturity_analysis_by_score() -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Runs the maturity analysis by calculating scores for each maturity level, determining the predominant level for each respondent, and generating a summary DataFrame. The results are exported to CSV files in the MATURITY
+    ANALYSIS_DIR.
+    Returns:
+        tuple[pd.DataFrame, pd.DataFrame]: A tuple containing the DataFrame with maturity scores and the summary DataFrame with counts and percentages for each maturity level.
+    """
+
     raw_df = read_file_to_df(DATA_FILE)
     df = data_preprocessing(df=raw_df)
 
@@ -144,9 +169,18 @@ def run_maturity_analysis_by_score() -> tuple[pd.DataFrame, pd.DataFrame]:
 
 
 def generate_profile_cross_analysis(df: pd.DataFrame) -> None:
-    col_role = constants.NUMBER_TO_QUESTIONS_MAP[2]
-    col_exp = constants.NUMBER_TO_QUESTIONS_MAP[4]
-    col_sector = constants.NUMBER_TO_QUESTIONS_MAP[5]
+    """
+    Generates cross-analysis charts and CSV files comparing maturity levels with role, experience, and sector.
+    The charts are saved in the MATURITY_ANALYSIS_DIR.
+    Args:
+        df (pd.DataFrame): The DataFrame containing the survey responses with maturity levels.
+    Returns:
+        None    
+    """
+
+    col_role = NUMBER_TO_QUESTIONS_MAP[2]
+    col_exp = NUMBER_TO_QUESTIONS_MAP[4]
+    col_sector = NUMBER_TO_QUESTIONS_MAP[5]
 
     cross_analyses = [
         {"name": "por_setor", "column": col_sector, "title": "Maturidade vs Setor"},
@@ -158,14 +192,13 @@ def generate_profile_cross_analysis(df: pd.DataFrame) -> None:
         },
     ]
 
-    CHARTS_DIR.mkdir(parents=True, exist_ok=True)
-
     for analysis in cross_analyses:
         col = analysis["column"]
 
+        # Cross tabulation with normalization to get percentages
         crosstab_df = pd.crosstab(
             index=df[col],
-            columns=df[PREDOMINANT_LEVEL_MEDIAN_COLUMN],
+            columns=df[PREDOMINANT_LEVEL_MEDIAN_COLUMN], # Use the median-based predominant level for cross-analysis
             normalize="index",
         ) * 100
 

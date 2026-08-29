@@ -1,5 +1,5 @@
 from maturity_analysis import run_maturity_analysis_by_score, generate_profile_cross_analysis
-from qualitative_analysis import generate_qualitative_reports
+from qualitative_analysis import generate_qualitative_reports, run_qualitative_analysis
 from run_charts import run_all_likert_scale_charts
 
 def main() -> None:
@@ -14,7 +14,7 @@ def main() -> None:
 
 	# Generate qualitative reports
 	print("\n####### Generating qualitative reports... #######\n")
-	generate_qualitative_reports(df=df)
+	run_qualitative_analysis(df=df)
 	
 
 if __name__ == "__main__":

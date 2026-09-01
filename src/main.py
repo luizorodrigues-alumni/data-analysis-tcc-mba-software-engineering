@@ -1,5 +1,5 @@
 from maturity_analysis import run_maturity_analysis_by_score, generate_profile_cross_analysis
-from qualitative_analysis import generate_qualitative_reports, run_qualitative_analysis
+from qualitative_analysis import run_qualitative_analysis
 from run_charts import run_all_likert_scale_charts
 
 def main() -> None:

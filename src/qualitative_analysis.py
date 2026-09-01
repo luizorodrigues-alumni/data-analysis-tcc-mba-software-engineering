@@ -1,7 +1,11 @@
 from pathlib import Path
 
 from constants import NUMBER_TO_QUESTIONS_MAP
+from chart_generator import generate_heatmap_chart
 import pandas as pd
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+QUALITATIVE_REPORTS_DIR = BASE_DIR / "files" / "qualitative_reports"
 
 def generate_qualitative_reports(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
@@ -73,14 +77,14 @@ def generate_qualitative_reports(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Dat
     
     report_q2 = calculate_frequencies(df_q19_validos, '2', total_validos_q19)
 
-    # Displays summaries in the terminal
+    # Display summaries in the terminal
     print(f"--- Report Question 18 ---")
-    print(f"Total de respondentes válidos: {total_validos_q18}")
+    print(f"Total valid respondents: {total_validos_q18}")
     print(report_q1.to_string(index=False))
     print("\n")
     
     print(f"--- Report Question 19 ---")
-    print(f"Total de respondentes válidos: {total_validos_q19}")
+    print(f"Total valid respondents: {total_validos_q19}")
     print(report_q2.to_string(index=False))
     
     # Export (Optional)
@@ -92,9 +96,136 @@ def generate_qualitative_reports(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Dat
     file_name_q19 = "frequencia_qualitativa_p19.csv"
 
     report_q1.to_csv(RESULT_DIR / file_name_q18, index=False)
-    print(f"Exportado: {file_name_q18}")
+    print(f"Exported: {file_name_q18}")
 
     report_q2.to_csv(RESULT_DIR / file_name_q19, index=False)
-    print(f"Exportado: {file_name_q19}")
+    print(f"Exported: {file_name_q19}")
     
     return report_q1, report_q2
+
+
+def generate_maturity_vs_qualitative_cross_analysis(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Correlates the maturity level (nivel_predominante_mediana) with consolidated 
+    qualitative categories (questions 18 and 19 combined).
+    
+    Args:
+        df (pd.DataFrame): The DataFrame containing responses and already-marked categories.
+    Returns:
+        pd.DataFrame: DataFrame with cross-tabulation (frequency in % per level).
+    """
+    q18_col = NUMBER_TO_QUESTIONS_MAP[18]
+    q19_col = NUMBER_TO_QUESTIONS_MAP[19]
+    
+    base_categories = [
+        'debito_tecnico', 'retrabalho', 'desalinhamento', 
+        'desmotivação', 'inviabilidade', 'valor', 'qualidade'
+    ]
+    
+    # 1. Filter for valid respondents
+    # A respondent is considered valid for this analysis if they answered Q18 OR Q19
+    mask_q18 = df[q18_col].notna() & (df[q18_col].astype(str).str.strip().str.len() > 5)
+    mask_q19 = df[q19_col].notna() & (df[q19_col].astype(str).str.strip().str.len() > 5)
+    
+    valid_mask = mask_q18 | mask_q19
+    df_valid = df[valid_mask].copy()
+    
+    # 2. Consolidation of categories (Multi-label)
+    # If the person marked True in 1 OR in 2, the consolidated will be True
+    consolidated_cols = []
+    for cat in base_categories:
+        col1 = f"{cat}1"
+        col2 = f"{cat}2"
+        
+        # Pulls data safely, converting to boolean
+        val1 = df_valid[col1].fillna(0).astype(bool) if col1 in df_valid.columns else False
+        val2 = df_valid[col2].fillna(0).astype(bool) if col2 in df_valid.columns else False
+        
+        consolidated_col = f"{cat}_consolidado"
+        df_valid[consolidated_col] = val1 | val2
+        consolidated_cols.append(consolidated_col)
+        
+    # 3. Cross-Tabulation (Cross-Analysis)
+    # Group by median maturity level
+    grouped = df_valid.groupby('nivel_predominante_mediana')
+    
+    # Since the consolidated columns are boolean (True=1, False=0), 
+    # mean * 100 gives us exactly the percentage of incidence per level!
+    cross_analysis = grouped[consolidated_cols].mean() * 100
+    
+    # Count how many valid respondents fall into each level
+    cross_analysis['Total de Respondentes'] = grouped.size()
+    
+    # 4. Formatting and Cleanup for Final Report
+    cross_analysis = cross_analysis.round(2).reset_index()
+    
+    # Rename columns from "debito_tecnico_consolidado" to "Debito Tecnico"
+    rename_map = {f"{cat}_consolidado": cat.replace('_', ' ').title() for cat in base_categories}
+    cross_analysis = cross_analysis.rename(columns=rename_map)
+    
+    # Reorder columns to place "Total" right after "Level"
+    final_cols = ['nivel_predominante_mediana', 'Total de Respondentes'] + list(rename_map.values())
+    cross_analysis = cross_analysis[final_cols]
+    
+    # Display in terminal
+    print("--- Cross-Analysis: Maturity vs Qualitative (Consolidated) ---")
+    print(cross_analysis.to_string(index=False))
+    print("\n")
+    
+    # 5. Export
+    BASE_DIR = Path(__file__).resolve().parent.parent
+    RESULT_DIR = BASE_DIR / "files" / "qualitative_reports"
+    RESULT_DIR.mkdir(parents=True, exist_ok=True)
+
+    file_name = "crosstab_maturidade_vs_qualitativo_consolidado.csv"
+    cross_analysis.to_csv(RESULT_DIR / file_name, index=False)
+    print(f"Exported: {file_name}")
+    
+    return cross_analysis
+
+
+def generate_qualitative_cross_heatmap() -> pd.DataFrame:
+    """
+    Loads the consolidated qualitative cross-tab CSV and generates a heatmap in the
+    same style as the maturity cross-analysis charts.
+    """
+    csv_path = QUALITATIVE_REPORTS_DIR / "crosstab_maturidade_vs_qualitativo_consolidado.csv"
+
+    if not csv_path.exists():
+        raise FileNotFoundError(f"Arquivo de crosstab não encontrado: {csv_path}")
+
+    crosstab_df = pd.read_csv(csv_path)
+    heatmap_df = (
+        crosstab_df.set_index("nivel_predominante_mediana")
+        .drop(columns=["Total de Respondentes"], errors="ignore")
+        .T
+    )
+    heatmap_df.columns = [f"Nível {int(float(col))}" for col in heatmap_df.columns]
+
+    output_path = QUALITATIVE_REPORTS_DIR / "heatmap_maturidade_vs_qualitativo_consolidado.png"
+    generate_heatmap_chart(
+        df=heatmap_df,
+        output_path=output_path,
+        xlabel="Nível de Maturidade",
+        ylabel="Categoria",
+    )
+    print(f"Exported: {output_path.name}")
+    return heatmap_df
+
+
+def run_qualitative_analysis(df: pd.DataFrame) -> None:
+    """
+    Runs the qualitative analysis, generating reports for questions 18 and 19,
+    and performing a cross-analysis with maturity levels.
+    
+    Args:
+        df (pd.DataFrame): The DataFrame containing the survey responses.
+    Returns:
+        None
+    """
+    # Generate qualitative reports for questions 18 and 19
+    generate_qualitative_reports(df)
+    
+    # Generate cross-analysis between maturity levels and qualitative categories
+    generate_maturity_vs_qualitative_cross_analysis(df)
+    generate_qualitative_cross_heatmap()

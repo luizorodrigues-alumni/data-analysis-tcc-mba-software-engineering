@@ -1,7 +1,11 @@
 from pathlib import Path
 
 from constants import NUMBER_TO_QUESTIONS_MAP
+from chart_generator import generate_heatmap_chart
 import pandas as pd
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+QUALITATIVE_REPORTS_DIR = BASE_DIR / "files" / "qualitative_reports"
 
 def generate_qualitative_reports(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
@@ -180,6 +184,35 @@ def generate_maturity_vs_qualitative_cross_analysis(df: pd.DataFrame) -> pd.Data
     return cross_analysis
 
 
+def generate_qualitative_cross_heatmap() -> pd.DataFrame:
+    """
+    Loads the consolidated qualitative cross-tab CSV and generates a heatmap in the
+    same style as the maturity cross-analysis charts.
+    """
+    csv_path = QUALITATIVE_REPORTS_DIR / "crosstab_maturidade_vs_qualitativo_consolidado.csv"
+
+    if not csv_path.exists():
+        raise FileNotFoundError(f"Arquivo de crosstab não encontrado: {csv_path}")
+
+    crosstab_df = pd.read_csv(csv_path)
+    heatmap_df = (
+        crosstab_df.set_index("nivel_predominante_mediana")
+        .drop(columns=["Total de Respondentes"], errors="ignore")
+        .T
+    )
+    heatmap_df.columns = [f"Nível {int(float(col))}" for col in heatmap_df.columns]
+
+    output_path = QUALITATIVE_REPORTS_DIR / "heatmap_maturidade_vs_qualitativo_consolidado.png"
+    generate_heatmap_chart(
+        df=heatmap_df,
+        output_path=output_path,
+        xlabel="Nível de Maturidade",
+        ylabel="Categoria",
+    )
+    print(f"Exported: {output_path.name}")
+    return heatmap_df
+
+
 def run_qualitative_analysis(df: pd.DataFrame) -> None:
     """
     Runs the qualitative analysis, generating reports for questions 18 and 19,
@@ -195,3 +228,4 @@ def run_qualitative_analysis(df: pd.DataFrame) -> None:
     
     # Generate cross-analysis between maturity levels and qualitative categories
     generate_maturity_vs_qualitative_cross_analysis(df)
+    generate_qualitative_cross_heatmap()
